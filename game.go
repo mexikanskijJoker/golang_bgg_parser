@@ -136,7 +136,7 @@ func main() {
 		}
 		total = append(total, games)
 	}
-
+	// TODO: db connect && tg alert
 	for _, page := range total {
 		for _, game := range page {
 			fmt.Printf("{Название: %s, Стоимость: %d, Кол-во игроков: %s, Длительность: %s, Возраст: %s}\n", game.Title, game.Price, game.Players, game.Duration, game.Age)
