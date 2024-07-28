@@ -43,7 +43,7 @@ func getDoc(url string) (*goquery.Document, error) {
 func getHtml(doc *goquery.Document) (string, error) {
 	html, err := doc.Html()
 	if err != nil {
-		log.Fatalf("Ошибка %s", err)
+		log.Fatalf("ошибка преобразования в HTML: %s", err)
 		return "", err
 	}
 
@@ -68,19 +68,21 @@ func getGame(item *goquery.Selection) Game {
 	return game
 }
 
-func getGames(html string) []Game {
+func getGames(url string) ([]Game, error) {
 	var games []Game
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	doc, _ := getDoc(string(url))
+	html, _ := getHtml(doc)
+	parseDoc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		log.Fatalf("Ошибка %s", err)
-		return nil
+		log.Fatalf("ошибка чтения документа: %s", err)
+		return nil, err
 	}
-	doc.Find(".product-item  ").Each(func(i int, item *goquery.Selection) {
+	parseDoc.Find(".product-item  ").Each(func(i int, item *goquery.Selection) {
 		game := getGame(item)
 		games = append(games, game)
 	})
 
-	return games
+	return games, nil
 }
 
 func getTitle(item *goquery.Selection) string {
@@ -143,9 +145,12 @@ func main() {
 	var total [][]Game
 	for i := 1; i < 10; i++ {
 		url := fmt.Sprintf(URL, i)
-		doc, _ := getDoc(string(url))
-		html, _ := getHtml(doc)
-		games := getGames(html)
+
+		games, err := getGames(url)
+		if err != nil {
+			log.Fatalf("парсинг страницы %d, ошибка %v", i, err)
+			total = append(total, []Game{})
+		}
 		total = append(total, games)
 	}
 
