@@ -15,7 +15,7 @@ const URL string = "https://hobbygames.ru/nastolnie/ekbg?page=%d&parameter_type=
 
 type Game struct {
 	Title    string
-	Price    int
+	Price    uint16
 	Players  string
 	Duration string
 	Age      string
@@ -112,7 +112,7 @@ func textProcess(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func convertPrice(str_price string) (int, error) {
+func convertPrice(str_price string) (uint16, error) {
 	re, _ := regexp.Compile(`[^\d]`)
 	price := re.ReplaceAllString(str_price, "")
 	total, err := strconv.Atoi(price)
@@ -121,7 +121,7 @@ func convertPrice(str_price string) (int, error) {
 		return 0, err
 	}
 
-	return total, nil
+	return uint16(total), nil
 }
 
 func main() {
@@ -136,7 +136,7 @@ func main() {
 		}
 		total = append(total, games)
 	}
-	// TODO: db connect && tg alert
+	// TODO: db connect && tg alert && goroutines
 	for _, page := range total {
 		for _, game := range page {
 			fmt.Printf("{Название: %s, Стоимость: %d, Кол-во игроков: %s, Длительность: %s, Возраст: %s}\n", game.Title, game.Price, game.Players, game.Duration, game.Age)
