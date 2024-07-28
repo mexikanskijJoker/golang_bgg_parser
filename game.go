@@ -40,16 +40,6 @@ func getDoc(url string) (*goquery.Document, error) {
 	return doc, nil
 }
 
-func getHtml(doc *goquery.Document) (string, error) {
-	html, err := doc.Html()
-	if err != nil {
-		log.Fatalf("ошибка преобразования в HTML: %s", err)
-		return "", err
-	}
-
-	return html, nil
-}
-
 func getGame(item *goquery.Selection) Game {
 	title := textProcess(getTitle(item))
 	price, _ := convertPrice(textProcess(getPrice(item)))
@@ -71,15 +61,8 @@ func getGame(item *goquery.Selection) Game {
 func getGames(url string) ([]Game, error) {
 	var games []Game
 	doc, _ := getDoc(string(url))
-	html, _ := getHtml(doc)
-	parseDoc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		log.Fatalf("ошибка чтения документа: %s", err)
-		return nil, err
-	}
-	parseDoc.Find(".product-item  ").Each(func(i int, item *goquery.Selection) {
-		game := getGame(item)
-		games = append(games, game)
+	doc.Find(".product-item  ").Each(func(i int, item *goquery.Selection) {
+		games = append(games, getGame(item))
 	})
 
 	return games, nil
@@ -134,7 +117,7 @@ func convertPrice(str_price string) (int, error) {
 	price := re.ReplaceAllString(str_price, "")
 	total, err := strconv.Atoi(price)
 	if err != nil {
-		log.Fatalf("Error while parsing price: %s", err)
+		log.Fatalf("Ошибка преобразования price: %s", err)
 		return 0, err
 	}
 
@@ -143,13 +126,13 @@ func convertPrice(str_price string) (int, error) {
 
 func main() {
 	var total [][]Game
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 20; i++ {
 		url := fmt.Sprintf(URL, i)
 
 		games, err := getGames(url)
 		if err != nil {
 			log.Fatalf("парсинг страницы %d, ошибка %v", i, err)
-			total = append(total, []Game{})
+			continue
 		}
 		total = append(total, games)
 	}
