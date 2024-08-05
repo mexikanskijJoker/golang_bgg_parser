@@ -1,4 +1,4 @@
-module myproject
+module hobbygamesParser
 
 go 1.22.5
 
