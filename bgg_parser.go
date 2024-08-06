@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,13 +19,13 @@ const (
 )
 
 type Game struct {
-	// Id       uint32
-	Rank uint16
-	// Title    string
+	ID    uint32
+	Rank  uint16
+	Title string
 	// Players  uint8
 	// Duration uint16
 	// Price    float32
-	// Age      uint8
+	Age uint8
 	// Weight   float32
 }
 
@@ -71,12 +72,14 @@ func getGameIds(pageNumber int, wg *sync.WaitGroup, ch chan []string) {
 }
 
 func parseGame(gameID string, wg *sync.WaitGroup, ch chan<- []Game) {
+	defer wg.Done()
 	var games []Game
 	time.Sleep(time.Second)
+
 	gamePageUrl := fmt.Sprintf(apiGameUrl, gameID)
 	resp, err := http.Get(gamePageUrl)
+
 	defer resp.Body.Close()
-	defer wg.Done()
 
 	if err != nil {
 		log.Fatalf("Ошибка отправки запроса для игры %s", gameID)
@@ -88,19 +91,75 @@ func parseGame(gameID string, wg *sync.WaitGroup, ch chan<- []Game) {
 	}
 
 	doc.Find("boardgame").Each(func(i int, item *goquery.Selection) {
-		value, exists := item.Find("rank").Attr("value")
-		if exists {
-			rank, err := strconv.Atoi(value)
-			if err != nil {
-				log.Fatalf("Ошибка конвертирования значения Rank, ID игры: %s", gameID)
-				return
-			}
-			games = append(games, Game{Rank: uint16(rank)})
+		rank := getRank(gameID, item)
+		id := getID(gameID, item)
+		title := getTitle(gameID, item)
+		age := getAge(gameID, item)
+
+		game := Game{
+			Rank:  rank,
+			ID:    id,
+			Title: title,
+			Age:   age,
 		}
+		games = append(games, game)
 	})
 
 	ch <- games
 
+}
+
+func getRank(gameID string, item *goquery.Selection) uint16 {
+	value, exists := item.Find("rank").Attr("value")
+	if exists {
+		rank, err := strconv.Atoi(value)
+		if err != nil {
+			log.Fatalf("Ошибка конвертирования значения Rank, ID игры: %s", gameID)
+			return 0
+		}
+
+		return uint16(rank)
+	}
+
+	return 0
+}
+
+func getID(gameID string, item *goquery.Selection) uint32 {
+	value, exists := item.Attr("objectid")
+	if exists {
+		id, err := strconv.Atoi(value)
+		if err != nil {
+			log.Fatalf("Ошибка преобразования ID в int, ID игры: %s", gameID)
+			return 0
+		}
+
+		return uint32(id)
+	}
+
+	return 0
+}
+
+func getTitle(gameID string, item *goquery.Selection) string {
+	value := item.Find("name[primary=true]").Text()
+	if value != "" {
+		return strings.TrimSpace(value)
+	}
+
+	return value
+}
+
+func getAge(gameID string, item *goquery.Selection) uint8 {
+	value := item.Find("age").Text()
+	if value != "" {
+		age, err := strconv.Atoi(value)
+		if err != nil {
+			log.Fatalf("Ошибка преобразования Age в int, ID игры: %s", gameID)
+			return 0
+		}
+		return uint8(age)
+	}
+
+	return 0
 }
 
 func main() {
@@ -138,5 +197,5 @@ func main() {
 		allGames = append(allGames, games...)
 	}
 
-	fmt.Println(len(allGames) - 7)
+	fmt.Println(allGames)
 }
