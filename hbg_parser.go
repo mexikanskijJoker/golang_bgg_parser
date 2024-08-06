@@ -1,158 +1,171 @@
-// package main
+package main
 
-// import (
-// 	"fmt"
-// 	"log"
-// 	"net/http"
-// 	"regexp"
-// 	"strconv"
-// 	"strings"
-// 	"sync"
-// 	"time"
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
-// 	"github.com/PuerkitoBio/goquery"
-// )
+	"github.com/PuerkitoBio/goquery"
+)
 
-// const URL string = "https://hobbygames.ru/nastolnie/ekbg?page=%d&parameter_type=0"
+const URL string = "https://hobbygames.ru/nastolnie/ekbg?page=%d&parameter_type=0"
 
-// type Game struct {
-// 	Title    string
-// 	Price    uint16
-// 	Players  string
-// 	Duration string
-// 	Age      string
-// }
+type Game struct {
+	ID       uint32
+	Title    string
+	Price    uint16
+	Players  string
+	Duration string
+	Age      string
+}
 
-// func getDoc(url string) (*goquery.Document, error) {
-// 	resp, err := http.Get(url)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("ошибка отправки запроса: %w", err)
-// 	}
-// 	defer resp.Body.Close()
+func getDoc(url string) *goquery.Document { // куда-нибудь бы ещё алерты при ошибках отправлять...
+	resp, err := http.Get(url)
+	time.Sleep(time.Second)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
 
-// 	if resp.StatusCode != 200 {
-// 		return nil, fmt.Errorf("ресурс недоступен, код ошибки: %d", resp.StatusCode)
-// 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
 
-// 	doc, err := goquery.NewDocumentFromReader(resp.Body)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("ошибка создания документа по телу запроса: %w", err)
-// 	}
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil
+	}
 
-// 	return doc, nil
-// }
+	return doc
+}
 
-// func getGame(item *goquery.Selection) Game {
-// 	title := textProcess(getTitle(item))
-// 	price, _ := convertPrice(textProcess(getPrice(item)))
-// 	players := textProcess(getPlayers(item))
-// 	duration := textProcess(getDuration(item))
-// 	age := textProcess(getAge(item))
+func getGame(item *goquery.Selection) Game {
+	id := getID(item)
+	title := getTitle(item)
+	price := getPrice(item)
+	players := getPlayers(item)
+	duration := getDuration(item)
+	age := getAge(item)
 
-// 	game := Game{
-// 		Title:    title,
-// 		Price:    price,
-// 		Duration: duration,
-// 		Age:      age,
-// 		Players:  players,
-// 	}
+	game := Game{
+		ID:       id,
+		Title:    title,
+		Price:    price,
+		Duration: duration,
+		Age:      age,
+		Players:  players,
+	}
 
-// 	return game
-// }
+	return game
+}
 
-// func getGames(url string, wg *sync.WaitGroup, ch chan<- []Game) {
-// 	defer wg.Done()
-// 	time.Sleep(time.Second) // Задержка в 1 секунду перед запросом
+func getGames(url string, wg *sync.WaitGroup, ch chan<- []Game) {
+	defer wg.Done()
+	var games []Game
 
-// 	var games []Game
-// 	doc, _ := getDoc(url)
-// 	doc.Find(".product-item").Each(func(i int, item *goquery.Selection) {
-// 		games = append(games, getGame(item))
-// 	})
+	doc := getDoc(url)
+	if doc != nil {
+		doc.Find(".product-item").Each(func(i int, item *goquery.Selection) {
+			games = append(games, getGame(item))
+		})
 
-// 	ch <- games
-// }
+		ch <- games
+	}
 
-// func getTitle(item *goquery.Selection) string {
-// 	title := item.Find(".name").Text()
-// 	if title == "" {
-// 		return "Нет информации"
-// 	}
+	return
+}
 
-// 	return title
-// }
+func getID(item *goquery.Selection) uint32 {
+	value, exists := item.Attr("data-product_id")
+	if exists {
+		id, err := strconv.ParseUint(value, 10, 32)
+		if err != nil {
+			return 0
+		}
 
-// func getPrice(item *goquery.Selection) string {
-// 	return item.Find("span.price").Text()
-// }
+		return uint32(id)
+	}
 
-// func getPlayers(item *goquery.Selection) string {
-// 	players := item.Find(".params__item.players").Text()
-// 	if players == "" {
-// 		return "Нет информации"
-// 	}
+	return 0
+}
 
-// 	return players
-// }
+func getTitle(item *goquery.Selection) string {
+	title := item.Find(".name").Text()
+	if title == "" {
+		return "Нет информации"
+	}
 
-// func getDuration(item *goquery.Selection) string {
-// 	duration := item.Find(".params__item.time").Text()
-// 	if duration == "" {
-// 		return "Нет информации"
-// 	}
+	return strings.TrimSpace(title)
+}
 
-// 	return duration
-// }
+func getPrice(item *goquery.Selection) uint16 {
+	value, exists := item.Attr("data-price")
+	if exists {
+		price, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			return 0
+		}
 
-// func getAge(item *goquery.Selection) string {
-// 	age := item.Find(".age__number").Text()
-// 	if age == "" {
-// 		return "Нет информации"
-// 	}
+		return uint16(price)
+	}
 
-// 	return age
-// }
+	return 0
+}
 
-// func textProcess(text string) string {
-// 	return strings.TrimSpace(text)
-// }
+func getPlayers(item *goquery.Selection) string {
+	players := item.Find(".params__item.players").Text()
+	if players == "" {
+		return "Нет информации"
+	}
 
-// func convertPrice(str_price string) (uint16, error) {
-// 	re, _ := regexp.Compile(`[^\d]`)
-// 	price := re.ReplaceAllString(str_price, "")
-// 	total, err := strconv.Atoi(price)
-// 	if err != nil {
-// 		log.Fatalf("Ошибка преобразования price: %s", err)
-// 		return 0, err
-// 	}
+	return strings.TrimSpace(players)
+}
 
-// 	return uint16(total), nil
-// }
+func getDuration(item *goquery.Selection) string {
+	duration := item.Find(".params__item.time").Text()
+	if duration == "" {
+		return "Нет информации"
+	}
 
-// func main() {
-// 	var wg sync.WaitGroup
-// 	ch := make(chan []Game, 20)
-// 	var total [][]Game
+	return strings.TrimSpace(duration)
+}
 
-// 	for i := 1; i < 20; i++ {
-// 		wg.Add(1)
-// 		url := fmt.Sprintf(URL, i)
-// 		fmt.Println(i)
-// 		go getGames(url, &wg, ch)
-// 	}
+func getAge(item *goquery.Selection) string {
+	age := item.Find(".age__number").Text()
+	if age == "" {
+		return "Нет информации"
+	}
 
-// 	go func() {
-// 		wg.Wait()
-// 		close(ch)
-// 	}()
+	return strings.TrimSpace(age)
+}
 
-// 	for games := range ch {
-// 		total = append(total, games)
-// 	}
+func main() {
+	var wg sync.WaitGroup
+	ch := make(chan []Game)
+	var total []Game
 
-// 	for _, page := range total {
-// 		for _, game := range page {
-// 			fmt.Printf("{Название: %s, Стоимость: %d, Кол-во игроков: %s, Длительность: %s, Возраст: %s}\n", game.Title, game.Price, game.Players, game.Duration, game.Age)
-// 		}
-// 	}
-// }
+	for i := 1; i < 50; i++ {
+		wg.Add(1)
+		url := fmt.Sprintf(URL, i)
+		go getGames(url, &wg, ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	for games := range ch {
+		total = append(total, games...)
+	}
+
+	for _, game := range total {
+		fmt.Printf(
+			"ID: %d, Название: %s, Стоимость: %d, Кол-во игроков: %s, Длительность: %s, Возраст: %s\n",
+			game.ID, game.Title, game.Price, game.Players, game.Duration, game.Age,
+		)
+	}
+}
