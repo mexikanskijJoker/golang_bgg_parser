@@ -182,6 +182,9 @@ func getWeight(gameID string, item *goquery.Selection) float32 {
 	return 0.0
 }
 
+// Логика повторяется для Duration и Players
+// мб стоит переписать под один метод с передачей только название тега...
+// с переводом под один тип данных
 func getDuration(gameID string, item *goquery.Selection) uint16 {
 	minValue := item.Find("minplaytime").Text()
 	maxValue := item.Find("maxplaytime").Text()
