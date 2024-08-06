@@ -19,14 +19,13 @@ const (
 )
 
 type Game struct {
-	ID    uint32
-	Rank  uint16
-	Title string
-	// Players  uint8
-	// Duration uint16
-	// Price    float32
-	Age uint8
-	// Weight   float32
+	ID       uint32
+	Rank     uint16
+	Title    string
+	Players  uint8
+	Duration uint16
+	Age      uint8
+	Weight   float32
 }
 
 func getGameIds(pageNumber int, wg *sync.WaitGroup, ch chan []string) {
@@ -95,12 +94,18 @@ func parseGame(gameID string, wg *sync.WaitGroup, ch chan<- []Game) {
 		id := getID(gameID, item)
 		title := getTitle(gameID, item)
 		age := getAge(gameID, item)
+		weight := getWeight(gameID, item)
+		duration := getDuration(gameID, item)
+		players := getPlayers(gameID, item)
 
 		game := Game{
-			Rank:  rank,
-			ID:    id,
-			Title: title,
-			Age:   age,
+			Rank:     rank,
+			ID:       id,
+			Title:    title,
+			Age:      age,
+			Weight:   weight,
+			Duration: duration,
+			Players:  players,
 		}
 		games = append(games, game)
 	})
@@ -162,12 +167,70 @@ func getAge(gameID string, item *goquery.Selection) uint8 {
 	return 0
 }
 
+func getWeight(gameID string, item *goquery.Selection) float32 {
+	value := item.Find("averageweight").Text()
+	if value != "" {
+		weight, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			log.Fatalf("Ошибка преобразования Weight во float32, ID игры: %s", gameID)
+			return 0.0
+		}
+
+		return float32(weight)
+	}
+
+	return 0.0
+}
+
+func getDuration(gameID string, item *goquery.Selection) uint16 {
+	minValue := item.Find("minplaytime").Text()
+	maxValue := item.Find("maxplaytime").Text()
+
+	if minValue != "" && maxValue == "" {
+		minPlayTime, _ := strconv.ParseUint(minValue, 10, 16)
+
+		return uint16(minPlayTime)
+	}
+
+	if minValue == "" && maxValue != "" {
+		maxPlayTime, _ := strconv.ParseUint(maxValue, 10, 16)
+
+		return uint16(maxPlayTime)
+	}
+
+	minUintValue, _ := strconv.ParseUint(minValue, 10, 16)
+	maxUintValue, _ := strconv.ParseUint(maxValue, 10, 16)
+
+	return uint16((minUintValue + maxUintValue) / 2)
+}
+
+func getPlayers(gameID string, item *goquery.Selection) uint8 {
+	minValue := item.Find("minplayers").Text()
+	maxValue := item.Find("maxplayers").Text()
+
+	if minValue != "" && maxValue == "" {
+		minPlayers, _ := strconv.ParseUint(minValue, 10, 8)
+
+		return uint8(minPlayers)
+	}
+
+	if minValue == "" && maxValue != "" {
+		maxPlayers, _ := strconv.ParseUint(maxValue, 10, 8)
+
+		return uint8(maxPlayers)
+	}
+
+	minUintValue, _ := strconv.ParseUint(minValue, 10, 8)
+	maxUintValue, _ := strconv.ParseUint(maxValue, 10, 8)
+
+	return uint8((minUintValue + maxUintValue) / 2)
+}
+
 func main() {
 	var wg sync.WaitGroup
 	gameIdsChannel := make(chan []string)
 	for i := 1; i <= 10; i++ {
 		wg.Add(1)
-		fmt.Println(i)
 		go getGameIds(i, &wg, gameIdsChannel)
 	}
 
@@ -197,5 +260,10 @@ func main() {
 		allGames = append(allGames, games...)
 	}
 
-	fmt.Println(allGames)
+	for _, game := range allGames {
+		fmt.Printf(
+			"ID игры: %d, Название: %s, Ранг: %d, Продолжительность: %d, Возрастная категория: %d, Кол-во игроков: %d, Сложность: %.2f\n",
+			game.ID, game.Title, game.Rank, game.Duration, game.Age, game.Players, game.Weight,
+		)
+	}
 }
