@@ -1,4 +1,4 @@
-module hobbygamesParser
+module bggParser
 
 go 1.22.5
 
