@@ -167,6 +167,7 @@ func getTitle(gameID string, item *goquery.Selection) string {
 		return strings.TrimSpace(value)
 	}
 	log.Printf("Пустое значение поля Title, ID игры: %s", gameID)
+
 	return value
 }
 
@@ -249,6 +250,7 @@ func getPlayers(gameID string, item *goquery.Selection) uint8 {
 
 	minUintValue, _ := strconv.ParseUint(minValue, 10, 8)
 	maxUintValue, _ := strconv.ParseUint(maxValue, 10, 8)
+
 	return uint8((minUintValue + maxUintValue) / 2)
 }
 
